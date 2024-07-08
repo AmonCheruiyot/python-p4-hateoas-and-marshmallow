@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
-from flask import Flask, request, make_response
-from flask_marshmallow import Marshmallow
+from flask import Flask, jsonify, request, make_response
 from flask_migrate import Migrate
 from flask_restful import Api, Resource
 
-from models import db, Newsletter
+from models import db, Plant
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///newsletters.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///plants.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.json.compact = False
 
@@ -17,105 +16,60 @@ db.init_app(app)
 
 api = Api(app)
 
-class Index(Resource):
+
+class Plants(Resource):
 
     def get(self):
-        
-        response_dict = {
-            "index": "Welcome to the Newsletter RESTful API",
-        }
-        
-        response = make_response(
-            response_dict,
-            200,
-        )
-
-        return response
-
-api.add_resource(Index, '/')
-
-class Newsletters(Resource):
-
-    def get(self):
-        
-        response_dict_list = [n.to_dict() for n in Newsletter.query.all()]
-
-        response = make_response(
-            response_dict_list,
-            200,
-        )
-
-        return response
+        plants = [plant.to_dict() for plant in Plant.query.all()]
+        return make_response(jsonify(plants), 200)
 
     def post(self):
-        
-        new_record = Newsletter(
-            title=request.form['title'],
-            body=request.form['body'],
+        data = request.get_json()
+
+        new_plant = Plant(
+            name=data['name'],
+            image=data['image'],
+            price=data['price'],
         )
 
-        db.session.add(new_record)
+        db.session.add(new_plant)
         db.session.commit()
 
-        response_dict = new_record.to_dict()
+        return make_response(new_plant.to_dict(), 201)
 
-        response = make_response(
-            response_dict,
-            201,
-        )
 
-        return response
+api.add_resource(Plants, '/plants')
 
-api.add_resource(Newsletters, '/newsletters')
 
-class NewsletterByID(Resource):
+class PlantByID(Resource):
 
     def get(self, id):
-
-        response_dict = Newsletter.query.filter_by(id=id).first().to_dict()
-
-        response = make_response(
-            response_dict,
-            200,
-        )
-
-        return response
+        plant = Plant.query.filter_by(id=id).first().to_dict()
+        return make_response(jsonify(plant), 200)
 
     def patch(self, id):
+        data = request.get_json()
 
-        record = Newsletter.query.filter_by(id=id).first()
-        for attr in request.form:
-            setattr(record, attr, request.form[attr])
+        plant = Plant.query.filter_by(id=id).first()
 
-        db.session.add(record)
+        for attr in data:
+            setattr(plant, attr, data[attr])
+
+        db.session.add(plant)
         db.session.commit()
 
-        response_dict = record.to_dict()
-
-        response = make_response(
-            response_dict,
-            200
-        )
-
-        return response
+        return make_response(plant.to_dict(), 200)
 
     def delete(self, id):
-
-        record = Newsletter.query.filter_by(id=id).first()
-        
-        db.session.delete(record)
+        plant = Plant.query.filter_by(id=id).first()
+        db.session.delete(plant)
         db.session.commit()
 
-        response_dict = {"message": "record successfully deleted"}
+        return make_response('', 204)
 
-        response = make_response(
-            response_dict,
-            200
-        )
 
-        return response
 
-api.add_resource(NewsletterByID, '/newsletters/<int:id>')
+api.add_resource(PlantByID, '/plants/<int:id>')
 
 
 if __name__ == '__main__':
